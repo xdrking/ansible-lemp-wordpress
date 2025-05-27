@@ -114,7 +114,6 @@ ansible-lemp-wordpress/
 
 ## 🛡️ Notes
 
-* Do **not** commit your `.env` file to version control.
 * This playbook assumes you are running it from a control machine (not on the target).
 * Adjust PHP and WordPress configurations by editing the playbook.
 
@@ -236,8 +235,7 @@ ansible-lemp-wordpress/
 
 ## 🛡️ Notlar
 
-* `.env` dosyasını kesinlikle versiyon kontrol sistemine commit etmeyin.
-* Bu playbook kontrol makinesinden çalıştırılmak ücün tasarlanmıştır.
+* Bu playbook kontrol makinesinden çalıştırılmak için tasarlanmıştır.
 * PHP ya da WordPress ayarlarını playbook'tan düzenleyebilirsiniz.
 
 ---
