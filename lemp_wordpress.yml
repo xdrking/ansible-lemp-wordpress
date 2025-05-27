@@ -1,0 +1,104 @@
+- name: LEMP + WordPress kurulumu
+  hosts: webservers
+  become: true
+  vars:
+    db_name: "{{ lookup('env', 'DB_NAME') | default('wordpress') }}"
+    db_user: "{{ lookup('env', 'DB_USER') | default('wpuser') }}"
+    db_pass: "{{ lookup('env', 'DB_PASS') | default('wppass') }}"
+    wp_dir: "{{ lookup('env', 'WP_DIR') | default('/var/www/html') }}"
+  tasks:
+    - name: Gerekli paketleri kur
+      apt:
+        name:
+          - nginx
+          - php-fpm
+          - php-mysql
+          - mariadb-server
+          - unzip
+          - curl
+          - python3-pymysql
+        state: present
+        update_cache: true
+    - name: MariaDB servisini başlat ve etkinleştir
+      service:
+        name: mariadb
+        state: started
+        enabled: true
+    - name: WordPress veritabanını oluştur
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+    - name: WordPress veritabanı kullanıcısını oluştur
+      community.mysql.mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_pass }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+    - name: WordPress'i indir
+      get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /tmp/wordpress.tar.gz
+    - name: WordPress arşivini aç
+      unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /tmp/
+        remote_src: yes
+    - name: WordPress için dizini hazırla
+      file:
+        path: "{{ wp_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+        
+    - name: WordPress dosyalarını web dizinine kopyala
+      shell: "cp -r /tmp/wordpress/* {{ wp_dir }}/"
+      args:
+        creates: "{{ wp_dir }}/wp-config-sample.php"
+        
+    - name: WordPress dosyalarının sahipliğini ayarla
+      file:
+        path: "{{ wp_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+        recurse: yes
+    - name: Varsayılan index.html dosyasını sil
+      file:
+        path: "{{ wp_dir }}/index.html"
+        state: absent
+    - name: PHP versiyonunu al
+      command: php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;'
+      register: php_version
+      changed_when: false
+    - name: Nginx yapılandırmasını ayarla
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+              root {{ wp_dir }};
+              index index.php index.html index.htm;
+              server_name _;
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass unix:/run/php/php{{ php_version.stdout }}-fpm.sock;
+              }
+              location ~ /\.ht {
+                  deny all;
+              }
+          }
+    - name: Nginx'i yeniden başlat
+      service:
+        name: nginx
+        state: restarted
+    - name: PHP-FPM servisini yeniden başlat
+      service:
+        name: "php{{ php_version.stdout }}-fpm"
+        state: restarted
