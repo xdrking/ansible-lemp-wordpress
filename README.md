@@ -1,4 +1,4 @@
-# 🚀 Ansible LEMP + WordPress Installer
+# 🚀 Ansible LEMP + WordPress Installer (Manuel)
 
 ## 🌐 Language / Dil
 
